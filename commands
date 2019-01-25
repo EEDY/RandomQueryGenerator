@@ -1,0 +1,2 @@
+
+./gensql.pl --grammar conf/example.yy --dsn 'dbi:JDBC:hostname=localhost:9001;url=jdbc:t4jdbc://localhost:23400/:schema=seabase'

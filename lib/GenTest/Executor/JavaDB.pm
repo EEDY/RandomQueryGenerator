@@ -57,7 +57,7 @@ sub init {
 
     $dsn_part2 =~ s/([=;])/uc sprintf("%%%02x",ord($1))/eg;
 
-    my $dbh = DBI->connect($dsn_part1."url=".$dsn_part2, "zz", "zz", 
+    my $dbh = DBI->connect($dsn_part1."url=".$dsn_part2, "trafodion", "traf123", 
                            {
                                PrintError => 0,
                                RaiseError => 0,
@@ -262,15 +262,17 @@ sub currentSchema {
 	return undef if not defined $self->dbh();
 
     if (defined $schema) {
-        $self->execute("SET SCHEMA = $schema");
+    #    $self->execute("SET SCHEMA = $schema");
+         $self->execute("SET SCHEMA $schema");
     }
     
-	return $self->dbh()->selectrow_array("VALUES CURRENT SCHEMA");
+	#return $self->dbh()->selectrow_array("VALUES CURRENT SCHEMA");
+	return $self->dbh()->selectrow_array("values(CURRENT_SCHEMA)");
 }
 
 
 
-sub getSchemaMetaData {
+sub getSchemaMetaData_old {
     ## Return the result from a query with the following columns:
     ## 1. Schema (aka database) name
     ## 2. Table name
@@ -295,5 +297,29 @@ sub getSchemaMetaData {
     return $self->dbh()->selectall_arrayref($query);
 }
 
+sub getSchemaMetaData {
+    ## Return the result from a query with the following columns:
+    ## 1. Schema (aka database) name
+    ## 2. Table name
+    ## 3. TABLE for tables VIEW for views and MISC for other stuff
+    ## 4. Column name
+    ## 5. PRIMARY for primary key, INDEXED for indexed column and "ORDINARY" for all other columns
+    my ($self) = @_;
+    my $query = 
+        "select ".
+               "OBJ.schema_name as schemaname, ".
+               "OBJ.object_name as tablename, ".
+               "case when OBJ.object_type='VI' then 'view' ".
+                    "when OBJ.object_type='BT' then 'table' ".
+                    "else 'misc' end, ".
+                "COL.column_name as columnname, ".
+                "case when cons.CONSTRAINT_TYPE = 'P' then 'primary' else 'ordinary' end ". ## Need to figure out how to find indexes
+        "from ".
+            "\"_MD_\".OBJECTS as OBJ ".
+            "join \"_MD_\".COLUMNS as col on OBJ.OBJECT_UID = col.OBJECT_UID ".
+            "left join \"_MD_\".TABLE_CONSTRAINTS as cons on OBJ.OBJECT_UID = cons.TABLE_UID ".
+         "where OBJ.object_name <> 'DUMMY' and OBJ.schema_name = CURRENT_SCHEMA";
+    return $self->dbh()->selectall_arrayref($query);
+}
 
 1;
